@@ -1,5 +1,5 @@
 <script>
-	import '../app.css';
+
 	import { onMount } from 'svelte';
 	import { collection, getDocs, doc, deleteDoc } from 'firebase/firestore';
 	import db from '$lib/firebaseConfig.js';
@@ -81,15 +81,6 @@
 </div>
 
 <style>
-	a {
-		color: var(--color-accent);
-		text-decoration: none;
-	}
-
-	a:hover {
-		text-decoration: underline;
-	}
-
 	.game-items > div {
 		margin: 20px 0;
 		text-align: left;

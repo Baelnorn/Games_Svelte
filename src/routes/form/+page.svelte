@@ -1,26 +1,42 @@
 <script>
+	import { auth } from '$lib/firebaseConfig';
+	import { signInWithEmailAndPassword } from "firebase/auth";
+	import { goto } from '$app/navigation';
 	import { FormInput, Button } from 'components';
+	import { user } from '$lib/stores/userStore.js'; // Import the store
 
-	let name = $state('');
 	let email = $state('');
 	let password = $state('');
-	let referrer = $state('');
+	let error = $state('');
+	let loading = $state(false);
+
+	async function login() {
+		loading = true;
+		error = "";
+		try {
+			const userCredential = await signInWithEmailAndPassword(auth, email, password);
+			console.log("User signed in:", userCredential.user);
+			user.set(userCredential.user); // Update the store
+			goto('/games')
+		} catch (err) {
+			error = err.message;
+			console.error(err);
+			console.log("Login failed:", err);
+		} finally {
+			loading = false;
+		}
+	}
 </script>
 
-<!-- ABOUT -->
 <div class="myform">
-	<FormInput name="Name" bind:value={name} type="text" labelText="Name" required />
 	<FormInput name="Email" bind:value={email} type="email" labelText="Email" required />
-	<FormInput name="Password" bind:value={password} type="password" labelText="Password" />
-	<FormInput
-		name="referrer"
-		bind:value={referrer}
-		type="text"
-		labelText="How did you heard about us?"
-		labelAddition="(optional)"
-	/>
-	<Button type="button" text="Submit" onclick={()=>{alert("test")}}/>
+	<FormInput name="Password" bind:value={password} type="text" labelText="Password" />
+	<Button type="button" text={loading ? "Logging in..." : "Submit"} onclick={login} />
 </div>
+
+{#if error}
+	<p style="color: red">{error}</p>
+{/if}
 
 <style>
 	.myform {
