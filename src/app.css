@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+
+:root {
+    --color0: #ffffff;
+    --color-primary: #b5c9d3;
+    --color-secondary: #d6d6d5;
+    --color-accent: #6b7c84;
+    --color-accent2: color-mix(in hsl, var(--color-accent) 75%, var(--color-primary) 25%);
+    --color-accent3: color-mix(in hsl, var(--color-accent) 50%, var(--color-primary) 50%);
+    --color-accent0-2: color-mix(in hsl, var(--color-accent) 75%, #000000 25%);
+    --color-accent0-3: color-mix(in hsl, var(--color-accent) 50%, #000000 50%);
+    --font-size-base: 16px;
+
+    --transition-fast: background-color 0.1s ease;
+    --transition-slow: all 1s ease-in-out;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Roboto", sans-serif;
+    font-optical-sizing: auto;
+    font-weight: 400;
+    margin: 0;
+    height: 100vh;
+    background-color: var(--color-secondary);
+}
+
+body {
+    display: grid;
+    grid-template-columns: minmax(1.5em, 1fr) min(650px, 90%) minmax(1.5em, 1fr);
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+        "header header header"
+        ". main ."
+        "footer footer footer"
+}
+
+header {
+    grid-column: header;
+    text-align: center;
+}
+
+main {
+    grid-area: main;
+}
+
+footer {
+    grid-area: footer;
+    text-align: right;
+    background-color: var(--color-accent);
+    color: var(--color-secondary);
+    padding: 1rem;
+}
