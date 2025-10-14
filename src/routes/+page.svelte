@@ -26,6 +26,27 @@
 		}
 	}
 
+  // Toggle flags
+  let nameAsc = true;    // true = ascending, false = descending
+  let ratingAsc = false;
+
+  function sortByName() {
+    games = [...games].sort((a, b) => 
+      nameAsc
+        ? a.Name.localeCompare(b.Name)
+        : b.Name.localeCompare(a.Name)
+    );
+    nameAsc = !nameAsc;  // toggle for next click
+  }
+
+  function sortByRating() {
+    games = [...games].sort((a, b) =>
+      ratingAsc
+        ? a.Rating - b.Rating
+        : b.Rating - a.Rating
+    );
+    ratingAsc = !ratingAsc; // toggle for next click
+  }
 	// Lifecycle: on mount
 	onMount(() => {
 		fetchGames();
@@ -52,8 +73,17 @@
 
 <h1>Games List ({games.length} games)</h1>
 
+<button class="sort-button" on:click={sortByName}>
+  Sort by Name {nameAsc ? '▲' : '▼'}
+</button>
+
+<button class="sort-button" on:click={sortByRating}>
+  Sort by Rating {ratingAsc ? '▲' : '▼'}
+</button>
+
 <div class="game-items">
-	{#each games as game, index (game.id)}
+	{#each games as game, index (game.Name)}
+	
 		<div class="game">
 			<div class="head">
 				<div class="name">{game.Name}</div>
@@ -81,6 +111,15 @@
 </div>
 
 <style>
+	.sort-button {
+		font-size: 1em;
+		cursor: pointer;
+		background-color: var(--color-secondary);
+		color: var(--color-accent);
+		border: none;
+
+	}
+
 	.game-items > div {
 		margin: 20px 0;
 		text-align: left;
