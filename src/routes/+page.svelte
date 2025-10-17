@@ -1,89 +1,110 @@
-<script>
-
-	import { onMount } from 'svelte';
-	import { collection, getDocs, doc, deleteDoc } from 'firebase/firestore';
+<script lang="ts">
+	import { onMount, onDestroy } from 'svelte';
+	import { collection, getDocs } from 'firebase/firestore';
 	import db from '$lib/firebaseConfig.js';
+	import { fade } from 'svelte/transition';
 
-	let games = [];
-	let screenshotIndices = {};
+	// Type for Game
+	type Game = {
+		id: string;
+		Name: string;
+		Rating?: number;
+		Release?: string;
+		Description?: string;
+		Screenshots?: string[];
+	};
 
-	// Fetch games
+	let games: Game[] = [];
+
+	// Store current indices for each game
+	let currentIndices: Record<string, number> = {};
+
+	// Store next indices for fade transition
+	let nextIndices: Record<string, number> = {};
+
+	// Store timeouts for cleanup
+	const timeouts: Record<string, ReturnType<typeof setTimeout>> = {};
+
+	const min = 5000;
+	const max = 7000;
+	const fadeDuration = 800;
+
 	async function fetchGames() {
 		try {
-			const gamesCollection = collection(db, 'Gameslist');
-			const snapshot = await getDocs(gamesCollection);
-			games = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+			const snapshot = await getDocs(collection(db, 'Gameslist'));
+			games = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Game[];
 
-			// Initialize screenshot indices
+			// Initialize indices and start crossfade
 			games.forEach((game) => {
-				screenshotIndices[game.id] = 0;
+				currentIndices[game.id] = 0;
+				nextIndices[game.id] = 1 % (game.Screenshots?.length || 1);
+				startCrossfade(game.id);
 			});
-
-			// 🔥 force reactivity after init
-			screenshotIndices = { ...screenshotIndices };
-		} catch (error) {
-			console.error('Error fetching games:', error);
+		} catch (err) {
+			console.error(err);
 		}
 	}
 
-  // Toggle flags
-  let nameAsc = true;    // true = ascending, false = descending
-  let ratingAsc = false;
+	function startCrossfade(gameId: string) {
+		function scheduleNext() {
+			const intervalTime = Math.floor(Math.random() * (max - min + 1)) + min;
 
-  function sortByName() {
-    games = [...games].sort((a, b) => 
-      nameAsc
-        ? a.Name.localeCompare(b.Name)
-        : b.Name.localeCompare(a.Name)
-    );
-    nameAsc = !nameAsc;  // toggle for next click
-  }
+			timeouts[gameId] = setTimeout(() => {
+				const game = games.find((g) => g.id === gameId);
+				if (game && game.Screenshots && game.Screenshots.length > 1) {
+					// Update next index
+					nextIndices[gameId] = (currentIndices[gameId] + 1) % game.Screenshots.length;
 
-  function sortByRating() {
-    games = [...games].sort((a, b) =>
-      ratingAsc
-        ? a.Rating - b.Rating
-        : b.Rating - a.Rating
-    );
-    ratingAsc = !ratingAsc; // toggle for next click
-  }
-	// Lifecycle: on mount
-	onMount(() => {
-		fetchGames();
-		const interval = setInterval(() => {
-			let changed = false;
-			games.forEach((game) => {
-				if (game.Screenshots && game.Screenshots.length > 1) {
-					screenshotIndices[game.id] =
-						(screenshotIndices[game.id] + 1) % game.Screenshots.length;
-					changed = true;
+					// After fade duration, swap current index
+					setTimeout(() => {
+						currentIndices[gameId] = nextIndices[gameId];
+					}, fadeDuration); 
 				}
-			});
 
-			// 🔥 trigger Svelte reactivity
-			if (changed) {
-				screenshotIndices = { ...screenshotIndices };
-			}
-		}, 5000);
+				scheduleNext();
+			}, intervalTime);
+		}
 
-		// cleanup when component is destroyed
-		return () => clearInterval(interval);
+		scheduleNext();
+	}
+
+	// Sorting toggles
+	let nameAsc = true;
+	let ratingAsc = false;
+
+	function sortByName() {
+		games = [...games].sort((a, b) =>
+			nameAsc ? a.Name.localeCompare(b.Name) : b.Name.localeCompare(a.Name)
+		);
+		nameAsc = !nameAsc;
+	}
+
+	function sortByRating() {
+		games = [...games].sort((a, b) =>
+			ratingAsc ? (a.Rating || 0) - (b.Rating || 0) : (b.Rating || 0) - (a.Rating || 0)
+		);
+		ratingAsc = !ratingAsc;
+	}
+
+	onMount(fetchGames);
+
+	onDestroy(() => {
+		Object.values(timeouts).forEach(clearTimeout);
 	});
 </script>
 
 <h1>Games List ({games.length} games)</h1>
 
 <button class="sort-button" on:click={sortByName}>
-  Sort by Name {nameAsc ? '▲' : '▼'}
+	Sort by Name {nameAsc ? '▲' : '▼'}
 </button>
 
 <button class="sort-button" on:click={sortByRating}>
-  Sort by Rating {ratingAsc ? '▲' : '▼'}
+	Sort by Rating {ratingAsc ? '▲' : '▼'}
 </button>
 
 <div class="game-items">
-	{#each games as game, index (game.Name)}
-	
+	{#each games as game (game.id)}
 		<div class="game">
 			<div class="head">
 				<div class="name">{game.Name}</div>
@@ -97,10 +118,16 @@
 				</div>
 				<div>
 					{#if game.Screenshots && game.Screenshots.length > 0}
-						<img
-							src={game.Screenshots[screenshotIndices[game.id]]}
-							alt="Screenshot"
-						/>
+						<div class="screenshot-container">
+							{#key currentIndices[game.id]}
+								<img
+									src={game.Screenshots[currentIndices[game.id]]}
+									alt="Screenshot"
+									in:fade={{ duration: fadeDuration }}
+									out:fade={{ duration: fadeDuration }}
+								/>
+							{/key}
+						</div>
 					{:else}
 						<p>No screenshot available</p>
 					{/if}
@@ -117,7 +144,6 @@
 		background-color: var(--color-secondary);
 		color: var(--color-accent);
 		border: none;
-
 	}
 
 	.game-items > div {
@@ -128,41 +154,58 @@
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 		background-color: #f9f9f9;
 		color: var(--color0);
-		img {
-			width: 200px;
-			height: auto;
-			margin: 20px 10px;
-		}
-		.head {
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-			padding: 10px;
-			background-color: var(--color-accent3);
-			.name {
-				font-size: 1.2em;
-				font-weight: bold;
-			}
-			.rating {
-				min-width: 50px;
-				height: 50px;
-				display: flex;
-				justify-content: center;
-				align-items: center;
-				text-align: center;
-				background-color: var(--color-accent2);
-				font-weight: bold;
-				font-size: 1.5em;
-			}
-		}
-		.body {
-			display: flex;
-			justify-content: space-between;
-			color: var(--color-accent0-2);
-		}
 	}
 
-	.game-items > div p {
+	.screenshot-container {
+		position: relative;
+		width: 200px;
+		height: 120px;
+		overflow: hidden;
+		margin: 20px 10px;
+	}
+
+	.screenshot-container img {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.head {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 10px;
+		background-color: var(--color-accent3);
+	}
+
+	.head .name {
+		font-size: 1.2em;
+		font-weight: bold;
+	}
+
+	.head .rating {
+		min-width: 50px;
+		height: 50px;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		text-align: center;
+		background-color: var(--color-accent2);
+		font-weight: bold;
+		font-size: 1.5em;
+	}
+
+	.body {
+		display: flex;
+		justify-content: space-between;
+		color: var(--color-accent0-2);
+	}
+
+	.game-items > div p,
+	h5 {
 		margin: 0;
 		padding: 10px;
 	}
